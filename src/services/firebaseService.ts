@@ -812,36 +812,89 @@ export async function seedDefaultsIfNeeded(force = false): Promise<void> {
   try {
     const existingServices = await getDocs(collection(db, 'services'));
     if (force || existingServices.empty) {
-      const batch = writeBatch(db);
-      for (const svc of SEED_SERVICES) {
-        if (force || !existingServices.docs.some((d) => d.id === svc.id)) {
+      const existingDocIds = new Set(existingServices.docs.map((d) => d.id));
+      const toWrite = SEED_SERVICES.filter(
+        (svc) => force || !existingDocIds.has(svc.id)
+      );
+
+      const chunkSize = 25;
+      for (let i = 0; i < toWrite.length; i += chunkSize) {
+        const chunk = toWrite.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        for (const svc of chunk) {
           batch.set(doc(db, 'services', svc.id), {
-            ...svc,
+            id: svc.id,
+            name: svc.name.trim().slice(0, 120),
+            category: svc.category,
+            price: Math.max(0, Math.min(1000000, Number(svc.price) || 0)),
+            description: svc.description.trim().slice(0, 500),
+            imageUrl: svc.imageUrl.trim().slice(0, 1000),
+            enabled: Boolean(svc.enabled),
+            displayOrder: Math.max(0, Math.min(10000, Number(svc.displayOrder) || 0)),
+            turnaround: (svc.turnaround || '24 hrs').trim().slice(0, 60),
+            deliverables: (svc.deliverables || []).slice(0, 8).map((d) => d.slice(0, 120)),
             updatedAt: serverTimestamp(),
           });
         }
+        await batch.commit();
       }
-      await batch.commit();
     }
 
     const existingGallery = await getDocs(collection(db, 'gallery'));
     if (force || existingGallery.empty) {
-      const batch = writeBatch(db);
-      for (const item of SEED_GALLERY) {
-        if (force || !existingGallery.docs.some((d) => d.id === item.id)) {
+      const existingDocMap = new Map<string, unknown>();
+      existingGallery.docs.forEach((d) => existingDocMap.set(d.id, d.data()));
+
+      const toWrite = SEED_GALLERY.filter(
+        (item) => force || !existingDocMap.has(item.id)
+      );
+
+      const chunkSize = 25;
+      for (let i = 0; i < toWrite.length; i += chunkSize) {
+        const chunk = toWrite.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        for (const item of chunk) {
+          const prev = existingDocMap.get(item.id) as { createdAt?: unknown } | undefined;
           batch.set(doc(db, 'gallery', item.id), {
-            ...item,
-            createdAt: serverTimestamp(),
+            id: item.id,
+            title: item.title.trim().slice(0, 120),
+            category: item.category,
+            imageUrl: item.imageUrl.trim().slice(0, 1000),
+            description: item.description.trim().slice(0, 400),
+            createdAt: prev?.createdAt || serverTimestamp(),
           });
         }
+        await batch.commit();
       }
-      await batch.commit();
     }
 
     const existingSettings = await getDoc(doc(db, 'settings', 'site'));
     if (force || !existingSettings.exists()) {
+      const prevData = existingSettings.exists()
+        ? (existingSettings.data() as Partial<SiteSettings>)
+        : {};
       await setDoc(doc(db, 'settings', 'site'), {
-        ...DEFAULT_SITE_SETTINGS,
+        brandName: (prevData.brandName || DEFAULT_SITE_SETTINGS.brandName).trim().slice(0, 80),
+        logoUrl: (prevData.logoUrl || DEFAULT_SITE_SETTINGS.logoUrl).trim().slice(0, 1000),
+        whatsappNumber: (prevData.whatsappNumber || DEFAULT_SITE_SETTINGS.whatsappNumber).trim().slice(0, 20),
+        instagramUrl: (prevData.instagramUrl || DEFAULT_SITE_SETTINGS.instagramUrl).trim().slice(0, 300),
+        contactEmail: (prevData.contactEmail || DEFAULT_SITE_SETTINGS.contactEmail).trim().slice(0, 120),
+        contactPhone: (prevData.contactPhone || DEFAULT_SITE_SETTINGS.contactPhone).trim().slice(0, 100),
+        contactAddress: (prevData.contactAddress || DEFAULT_SITE_SETTINGS.contactAddress).trim().slice(0, 250),
+        websiteDescription: (prevData.websiteDescription || DEFAULT_SITE_SETTINGS.websiteDescription).trim().slice(0, 600),
+        paymentQrUrl: (prevData.paymentQrUrl || DEFAULT_SITE_SETTINGS.paymentQrUrl).trim().slice(0, 1000),
+        upiId: (prevData.upiId || DEFAULT_SITE_SETTINGS.upiId).trim().slice(0, 100),
+        razorpayEnabled: typeof prevData.razorpayEnabled === 'boolean' ? prevData.razorpayEnabled : DEFAULT_SITE_SETTINGS.razorpayEnabled,
+        razorpayKeyId: (prevData.razorpayKeyId || DEFAULT_SITE_SETTINGS.razorpayKeyId || '').trim().slice(0, 100),
+        razorpayMerchantName: (prevData.razorpayMerchantName || DEFAULT_SITE_SETTINGS.razorpayMerchantName || 'gurudev_designs').trim().slice(0, 100),
+        discountPercent: typeof prevData.discountPercent === 'number' ? Math.max(0, Math.min(90, prevData.discountPercent)) : DEFAULT_SITE_SETTINGS.discountPercent,
+        discountFlat: typeof prevData.discountFlat === 'number' ? Math.max(0, Math.min(100000, Math.round(prevData.discountFlat))) : DEFAULT_SITE_SETTINGS.discountFlat,
+        discountLabel: (prevData.discountLabel || DEFAULT_SITE_SETTINGS.discountLabel || '').trim().slice(0, 80),
+        bannerTitle: (prevData.bannerTitle || DEFAULT_SITE_SETTINGS.bannerTitle).trim().slice(0, 120),
+        bannerSubtitle: (prevData.bannerSubtitle || DEFAULT_SITE_SETTINGS.bannerSubtitle).trim().slice(0, 200),
+        bannerImageUrl: (prevData.bannerImageUrl || DEFAULT_SITE_SETTINGS.bannerImageUrl).trim().slice(0, 1000),
+        categories: normalizeCategories(prevData.categories || DEFAULT_SITE_SETTINGS.categories),
+        menuVisibility: normalizeMenuVisibility(prevData.menuVisibility, DEFAULT_MENU_VISIBILITY),
         updatedAt: serverTimestamp(),
       });
     }

@@ -34,7 +34,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isVerified() && (
-        request.auth.token.email == 'rakeshpatel144589@gmail.com' ||
+        ('email' in request.auth.token && request.auth.token.email.lower() == 'rakeshpatel144589@gmail.com') ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
@@ -318,11 +318,7 @@ service cloud.firestore {
       allow create: if isAdmin() && isValidId(serviceId) && isValidService(incoming()) &&
                     incoming().id == serviceId && incoming().updatedAt == request.time;
       allow update: if isAdmin() && isValidId(serviceId) && isValidService(incoming()) &&
-                    incoming().id == existing().id && incoming().updatedAt == request.time &&
-                    incoming().diff(existing()).affectedKeys().hasOnly([
-                      'name', 'category', 'price', 'description', 'imageUrl',
-                      'enabled', 'displayOrder', 'turnaround', 'deliverables', 'updatedAt'
-                    ]);
+                    incoming().id == serviceId && incoming().updatedAt == request.time;
       allow delete: if isAdmin() && isValidId(serviceId);
     }
 
@@ -380,8 +376,8 @@ service cloud.firestore {
       allow create: if isAdmin() && isValidId(itemId) && isValidGalleryItem(incoming()) &&
                     incoming().id == itemId && incoming().createdAt == request.time;
       allow update: if isAdmin() && isValidId(itemId) && isValidGalleryItem(incoming()) &&
-                    incoming().id == existing().id && incoming().createdAt == existing().createdAt &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'imageUrl', 'description']);
+                    incoming().id == itemId &&
+                    (incoming().createdAt == existing().createdAt || incoming().createdAt == request.time);
       allow delete: if isAdmin() && isValidId(itemId);
     }
 
@@ -392,14 +388,7 @@ service cloud.firestore {
       allow create: if isAdmin() && settingId == 'site' && isValidSiteSettings(incoming()) &&
                     incoming().updatedAt == request.time;
       allow update: if isAdmin() && settingId == 'site' && isValidSiteSettings(incoming()) &&
-                    incoming().updatedAt == request.time &&
-                    incoming().diff(existing()).affectedKeys().hasOnly([
-                      'brandName', 'logoUrl', 'whatsappNumber', 'instagramUrl', 'contactEmail',
-                      'contactPhone', 'contactAddress', 'websiteDescription', 'paymentQrUrl',
-                      'upiId', 'razorpayEnabled', 'razorpayKeyId', 'razorpayMerchantName',
-                      'discountPercent', 'discountFlat', 'discountLabel',
-                      'bannerTitle', 'bannerSubtitle', 'bannerImageUrl', 'categories', 'menuVisibility', 'updatedAt'
-                    ]);
+                    incoming().updatedAt == request.time;
       allow delete: if false;
     }
 
