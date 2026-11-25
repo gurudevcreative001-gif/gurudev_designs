@@ -1,0 +1,8 @@
+{
+  "name": "gurudev_designs",
+  "description": "Professional graphic design services for social media, business branding, invitation cards, Shraddhanjali tributes, and festival posters.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

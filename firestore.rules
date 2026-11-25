@@ -1,0 +1,415 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core identity & validation primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidTrackingKey(key) {
+      return key is string && key.size() == 64 && key.matches('^[a-f0-9]{64}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'rakeshpatel144589@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidServiceCategory(cat) {
+      return cat is string && cat.size() >= 1 && cat.size() <= 80;
+    }
+
+    function isValidCategoryConfig(catObj) {
+      return catObj is map &&
+        catObj.keys().hasAll(['id', 'name', 'description', 'imageUrl', 'enabled', 'displayOrder']) &&
+        catObj.keys().hasOnly(['id', 'name', 'description', 'imageUrl', 'enabled', 'displayOrder']) &&
+        catObj.id is string && catObj.id.size() >= 1 && catObj.id.size() <= 80 &&
+        catObj.name is string && catObj.name.size() >= 1 && catObj.name.size() <= 80 &&
+        catObj.description is string && catObj.description.size() <= 300 &&
+        catObj.imageUrl is string && catObj.imageUrl.size() <= 1000 &&
+        catObj.enabled is bool &&
+        catObj.displayOrder is number && catObj.displayOrder >= 0 && catObj.displayOrder <= 100;
+    }
+
+    function isValidOrderStatus(status) {
+      return status in [
+        'NEW ORDER',
+        'PAYMENT VERIFICATION PENDING',
+        'PAYMENT PENDING',
+        'PAYMENT RECEIVED',
+        'DESIGNING',
+        'DESIGN COMPLETED',
+        'DELIVERED',
+        'CANCELLED'
+      ];
+    }
+
+    function isValidPaymentStatus(pStatus) {
+      return pStatus in [
+        'PAYMENT VERIFICATION PENDING',
+        'PAYMENT VERIFIED',
+        'PAYMENT REJECTED'
+      ];
+    }
+
+    function isValidGalleryCategory(cat) {
+      return cat in [
+        'Instagram Designs',
+        'Business Designs',
+        'Invitation Cards',
+        'Shraddhanjali Designs',
+        'Festival Designs',
+        'Religious Designs'
+      ];
+    }
+
+    function isValidService(data) {
+      return data.keys().hasAll([
+        'id', 'name', 'category', 'price', 'description',
+        'imageUrl', 'enabled', 'displayOrder', 'turnaround', 'deliverables', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'id', 'name', 'category', 'price', 'description',
+        'imageUrl', 'enabled', 'displayOrder', 'turnaround', 'deliverables', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+      data.category is string && isValidServiceCategory(data.category) &&
+      data.price is number && data.price >= 0 && data.price <= 1000000 &&
+      data.description is string && data.description.size() >= 1 && data.description.size() <= 500 &&
+      data.imageUrl is string && data.imageUrl.size() <= 1000 &&
+      data.enabled is bool &&
+      data.displayOrder is number && data.displayOrder >= 0 && data.displayOrder <= 10000 &&
+      data.turnaround is string && data.turnaround.size() >= 1 && data.turnaround.size() <= 60 &&
+      data.deliverables is list && data.deliverables.size() <= 8 &&
+      (data.deliverables.size() == 0 || (data.deliverables[0] is string && data.deliverables[0].size() <= 120)) &&
+      data.updatedAt is timestamp;
+    }
+
+    function hasValidManualPaymentCreate(data) {
+      return data.paymentMethod in ['Scan & Pay QR', 'UPI Payment'] &&
+        data.paymentReference is string && data.paymentReference.size() >= 4 && data.paymentReference.size() <= 80 &&
+        data.paymentStatus == 'PAYMENT VERIFICATION PENDING' &&
+        data.status in ['NEW ORDER', 'PAYMENT VERIFICATION PENDING'];
+    }
+
+    function hasValidRazorpayCreate(data) {
+      return data.paymentMethod == 'Razorpay' &&
+        ('razorpayOrderId' in data.keys()) && data.razorpayOrderId is string && data.razorpayOrderId.matches('^order_[A-Za-z0-9]{6,40}$') &&
+        ('razorpayPaymentId' in data.keys()) && data.razorpayPaymentId is string && data.razorpayPaymentId.matches('^pay_[A-Za-z0-9]{6,40}$') &&
+        ('razorpaySignature' in data.keys()) && data.razorpaySignature is string && data.razorpaySignature.matches('^[a-fA-F0-9]{64}$') &&
+        data.paymentStatus == 'PAYMENT VERIFIED' &&
+        data.status == 'PAYMENT RECEIVED';
+    }
+
+    function isValidOrderCreate(data) {
+      return data.keys().hasAll([
+        'orderId', 'trackingKey', 'phoneKey', 'customerName', 'mobile', 'serviceId', 'serviceName',
+        'servicePrice', 'discountAmount', 'finalAmount',
+        'designSize', 'language', 'designText', 'requirements', 'specialInstructions',
+        'referencePhotos', 'logoUrl', 'paymentMethod', 'paymentReference',
+        'paymentScreenshotUrl', 'paymentStatus', 'status', 'adminNotes', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'orderId', 'trackingKey', 'phoneKey', 'customerName', 'mobile', 'serviceId', 'serviceName',
+        'servicePrice', 'discountAmount', 'finalAmount',
+        'designSize', 'language', 'designText', 'requirements', 'specialInstructions',
+        'referencePhotos', 'logoUrl', 'paymentMethod', 'paymentReference',
+        'paymentScreenshotUrl', 'razorpayOrderId', 'razorpayPaymentId', 'razorpaySignature',
+        'paymentStatus', 'status', 'adminNotes', 'createdAt', 'updatedAt'
+      ]) &&
+      data.orderId is string && data.orderId.size() >= 6 && data.orderId.size() <= 32 && data.orderId.matches('^[A-Z0-9\\-]+$') &&
+      isValidTrackingKey(data.trackingKey) &&
+      isValidTrackingKey(data.phoneKey) &&
+      data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100 &&
+      data.mobile is string && data.mobile.size() >= 10 && data.mobile.size() <= 20 && data.mobile.matches('^[0-9+\\-\\s()]{10,20}$') &&
+      data.serviceId is string && data.serviceId.size() >= 1 && data.serviceId.size() <= 128 &&
+      data.serviceName is string && data.serviceName.size() >= 1 && data.serviceName.size() <= 120 &&
+      data.servicePrice is number && data.servicePrice >= 0 && data.servicePrice <= 1000000 &&
+      data.discountAmount is number && data.discountAmount >= 0 && data.discountAmount <= 1000000 &&
+      data.finalAmount is number && data.finalAmount >= 0 && data.finalAmount <= 1000000 &&
+      data.designSize is string && data.designSize.size() >= 1 && data.designSize.size() <= 100 &&
+      data.language is string && data.language in ['Gujarati', 'Hindi', 'English'] &&
+      data.designText is string && data.designText.size() <= 2000 &&
+      data.requirements is string && data.requirements.size() >= 1 && data.requirements.size() <= 3000 &&
+      data.specialInstructions is string && data.specialInstructions.size() <= 1500 &&
+      data.referencePhotos is list && data.referencePhotos.size() <= 10 &&
+      (data.referencePhotos.size() == 0 || (data.referencePhotos[0] is string && data.referencePhotos[0].size() <= 1000)) &&
+      data.logoUrl is string && data.logoUrl.size() <= 1000 &&
+      data.paymentMethod is string &&
+      data.paymentReference is string && data.paymentReference.size() <= 80 &&
+      data.paymentScreenshotUrl is string && data.paymentScreenshotUrl.size() <= 1000 &&
+      (hasValidManualPaymentCreate(data) || hasValidRazorpayCreate(data)) &&
+      data.adminNotes is string && data.adminNotes == '' &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidOrderAdminUpdate(data) {
+      return data.orderId == existing().orderId &&
+        data.trackingKey == existing().trackingKey &&
+        data.createdAt == existing().createdAt &&
+        data.updatedAt is timestamp &&
+        data.status is string && isValidOrderStatus(data.status) &&
+        data.adminNotes is string && data.adminNotes.size() <= 2000 &&
+        (!('phoneKey' in data.keys()) || isValidTrackingKey(data.phoneKey)) &&
+        (!('paymentStatus' in data.keys()) || (data.paymentStatus is string && isValidPaymentStatus(data.paymentStatus))) &&
+        data.diff(existing()).affectedKeys().hasOnly(['status', 'paymentStatus', 'adminNotes', 'phoneKey', 'updatedAt']);
+    }
+
+    function isValidOrderTrackingCreate(data) {
+      return data.keys().hasAll([
+        'orderId', 'phoneKey', 'customerName', 'serviceName', 'servicePrice', 'discountAmount',
+        'finalAmount', 'paymentStatus', 'status', 'deliveryStatus', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'orderId', 'phoneKey', 'customerName', 'serviceName', 'servicePrice', 'discountAmount',
+        'finalAmount', 'paymentStatus', 'status', 'deliveryStatus', 'createdAt', 'updatedAt'
+      ]) &&
+      data.orderId is string && data.orderId.size() >= 6 && data.orderId.size() <= 32 && data.orderId.matches('^[A-Z0-9\\-]+$') &&
+      isValidTrackingKey(data.phoneKey) &&
+      data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+      data.serviceName is string && data.serviceName.size() >= 1 && data.serviceName.size() <= 120 &&
+      data.servicePrice is number && data.servicePrice >= 0 && data.servicePrice <= 1000000 &&
+      data.discountAmount is number && data.discountAmount >= 0 && data.discountAmount <= 1000000 &&
+      data.finalAmount is number && data.finalAmount >= 0 && data.finalAmount <= 1000000 &&
+      data.paymentStatus is string && (
+        (data.paymentStatus == 'PAYMENT VERIFICATION PENDING' && data.status in ['NEW ORDER', 'PAYMENT VERIFICATION PENDING']) ||
+        (data.paymentStatus == 'PAYMENT VERIFIED' && data.status == 'PAYMENT RECEIVED')
+      ) &&
+      data.deliveryStatus is string && data.deliveryStatus.size() >= 1 && data.deliveryStatus.size() <= 120 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidOrderTrackingAdminUpdate(data) {
+      return data.orderId == existing().orderId &&
+        data.createdAt == existing().createdAt &&
+        data.updatedAt is timestamp &&
+        data.status is string && isValidOrderStatus(data.status) &&
+        data.deliveryStatus is string && data.deliveryStatus.size() >= 1 && data.deliveryStatus.size() <= 120 &&
+        (!('phoneKey' in data.keys()) || isValidTrackingKey(data.phoneKey)) &&
+        (!('paymentStatus' in data.keys()) || (data.paymentStatus is string && isValidPaymentStatus(data.paymentStatus))) &&
+        data.diff(existing()).affectedKeys().hasOnly(['status', 'paymentStatus', 'deliveryStatus', 'phoneKey', 'updatedAt']);
+    }
+
+    function isValidPhoneIndexCreate(phoneKey, data) {
+      return data.keys().hasAll(['phoneKey', 'trackingKeys', 'updatedAt']) &&
+        data.keys().hasOnly(['phoneKey', 'trackingKeys', 'updatedAt']) &&
+        data.phoneKey == phoneKey &&
+        isValidTrackingKey(data.phoneKey) &&
+        data.trackingKeys is list &&
+        data.trackingKeys.size() == 1 &&
+        isValidTrackingKey(data.trackingKeys[0]) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPhoneIndexCustomerAppend(phoneKey, data) {
+      return data.keys().hasAll(['phoneKey', 'trackingKeys', 'updatedAt']) &&
+        data.keys().hasOnly(['phoneKey', 'trackingKeys', 'updatedAt']) &&
+        data.phoneKey == phoneKey &&
+        data.phoneKey == existing().phoneKey &&
+        data.trackingKeys is list &&
+        data.trackingKeys.size() >= 1 &&
+        data.trackingKeys.size() <= 50 &&
+        data.trackingKeys.size() <= existing().trackingKeys.size() + 1 &&
+        data.trackingKeys.hasAll(existing().trackingKeys) &&
+        isValidTrackingKey(data.trackingKeys[data.trackingKeys.size() - 1]) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidGalleryItem(data) {
+      return data.keys().hasAll([
+        'id', 'title', 'category', 'imageUrl', 'description', 'createdAt'
+      ]) && data.keys().hasOnly([
+        'id', 'title', 'category', 'imageUrl', 'description', 'createdAt'
+      ]) &&
+      isValidId(data.id) &&
+      data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+      data.category is string && isValidGalleryCategory(data.category) &&
+      data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 1000 &&
+      data.description is string && data.description.size() <= 400 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidSiteSettings(data) {
+      return data.keys().hasAll([
+        'brandName', 'logoUrl', 'whatsappNumber', 'instagramUrl', 'contactEmail',
+        'contactPhone', 'contactAddress', 'websiteDescription', 'paymentQrUrl',
+        'upiId', 'bannerTitle', 'bannerSubtitle', 'bannerImageUrl', 'menuVisibility', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'brandName', 'logoUrl', 'whatsappNumber', 'instagramUrl', 'contactEmail',
+        'contactPhone', 'contactAddress', 'websiteDescription', 'paymentQrUrl',
+        'upiId', 'razorpayEnabled', 'razorpayKeyId', 'razorpayMerchantName',
+        'discountPercent', 'discountFlat', 'discountLabel',
+        'bannerTitle', 'bannerSubtitle', 'bannerImageUrl', 'categories', 'menuVisibility', 'updatedAt'
+      ]) &&
+      data.brandName is string && data.brandName.size() >= 1 && data.brandName.size() <= 80 &&
+      data.logoUrl is string && data.logoUrl.size() <= 1000 &&
+      data.whatsappNumber is string && data.whatsappNumber.size() >= 8 && data.whatsappNumber.size() <= 20 &&
+      data.instagramUrl is string && data.instagramUrl.size() <= 300 &&
+      data.contactEmail is string && data.contactEmail.size() <= 120 &&
+      data.contactPhone is string && data.contactPhone.size() <= 100 &&
+      data.contactAddress is string && data.contactAddress.size() <= 250 &&
+      data.websiteDescription is string && data.websiteDescription.size() >= 1 && data.websiteDescription.size() <= 600 &&
+      data.paymentQrUrl is string && data.paymentQrUrl.size() <= 1000 &&
+      data.upiId is string && data.upiId.size() <= 100 &&
+      (!('razorpayEnabled' in data.keys()) || data.razorpayEnabled is bool) &&
+      (!('razorpayKeyId' in data.keys()) || (data.razorpayKeyId is string && data.razorpayKeyId.size() <= 100)) &&
+      (!('razorpayMerchantName' in data.keys()) || (data.razorpayMerchantName is string && data.razorpayMerchantName.size() <= 100)) &&
+      (!('discountPercent' in data.keys()) || (data.discountPercent is number && data.discountPercent >= 0 && data.discountPercent <= 90)) &&
+      (!('discountFlat' in data.keys()) || (data.discountFlat is number && data.discountFlat >= 0 && data.discountFlat <= 100000)) &&
+      (!('discountLabel' in data.keys()) || (data.discountLabel is string && data.discountLabel.size() <= 80)) &&
+      data.bannerTitle is string && data.bannerTitle.size() >= 1 && data.bannerTitle.size() <= 120 &&
+      data.bannerSubtitle is string && data.bannerSubtitle.size() >= 1 && data.bannerSubtitle.size() <= 200 &&
+      data.bannerImageUrl is string && data.bannerImageUrl.size() <= 1000 &&
+      (!('categories' in data.keys()) || (
+        data.categories is list &&
+        data.categories.size() <= 20 &&
+        (data.categories.size() == 0 || isValidCategoryConfig(data.categories[0]))
+      )) &&
+      data.menuVisibility is map &&
+      data.menuVisibility.size() <= 24 &&
+      data.menuVisibility.keys().hasOnly([
+        'home', 'allServices', 'gallery', 'orders', 'about', 'contact',
+        'whatsapp', 'paymentInfo', 'terms', 'privacy', 'refund', 'admin',
+        'socialMedia', 'business', 'invitation', 'shraddhanjali', 'festival', 'special'
+      ]) &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'addedAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'addedAt']) &&
+        isValidId(data.uid) &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+        data.addedAt is timestamp;
+    }
+
+    // Connection test document for startup verification
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+    }
+
+    // Public catalog of design services (Admin-editable)
+    match /services/{serviceId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && isValidId(serviceId) && isValidService(incoming()) &&
+                    incoming().id == serviceId && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(serviceId) && isValidService(incoming()) &&
+                    incoming().id == existing().id && incoming().updatedAt == request.time &&
+                    incoming().diff(existing()).affectedKeys().hasOnly([
+                      'name', 'category', 'price', 'description', 'imageUrl',
+                      'enabled', 'displayOrder', 'turnaround', 'deliverables', 'updatedAt'
+                    ]);
+      allow delete: if isAdmin() && isValidId(serviceId);
+    }
+
+    // Private customer orders (Admin read/update/delete; public create tied to tracking & phone index)
+    match /orders/{orderDocId} {
+      allow get, list: if isAdmin();
+      allow create: if isValidId(orderDocId) && isValidOrderCreate(incoming()) &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time &&
+                    existsAfter(/databases/$(database)/documents/order_tracking/$(incoming().trackingKey)) &&
+                    getAfter(/databases/$(database)/documents/order_tracking/$(incoming().trackingKey)).data.orderId == incoming().orderId &&
+                    existsAfter(/databases/$(database)/documents/phone_indexes/$(incoming().phoneKey));
+      allow update: if isAdmin() && isValidId(orderDocId) &&
+                    incoming().updatedAt == request.time &&
+                    isValidOrderAdminUpdate(incoming());
+      allow delete: if isAdmin() && isValidId(orderDocId);
+    }
+
+    // Sanitized order tracking records keyed by SHA-256(orderId:mobileLast10)
+    match /order_tracking/{trackingKey} {
+      allow get: if isValidTrackingKey(trackingKey);
+      allow list: if false;
+      allow create: if isValidTrackingKey(trackingKey) && isValidOrderTrackingCreate(incoming()) &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidTrackingKey(trackingKey) &&
+                    incoming().updatedAt == request.time &&
+                    isValidOrderTrackingAdminUpdate(incoming());
+      allow delete: if isAdmin() && isValidTrackingKey(trackingKey);
+    }
+
+    // Hashed mobile index for real-time My Orders view (append-only for customers, no list)
+    match /phone_indexes/{phoneKey} {
+      allow get: if isValidTrackingKey(phoneKey);
+      allow list: if false;
+      allow create: if isValidTrackingKey(phoneKey) &&
+                    isValidPhoneIndexCreate(phoneKey, incoming()) &&
+                    incoming().updatedAt == request.time;
+      allow update: if isValidTrackingKey(phoneKey) &&
+                    incoming().updatedAt == request.time && (
+                      isValidPhoneIndexCustomerAppend(phoneKey, incoming()) ||
+                      (isAdmin() &&
+                        incoming().keys().hasAll(['phoneKey', 'trackingKeys', 'updatedAt']) &&
+                        incoming().keys().hasOnly(['phoneKey', 'trackingKeys', 'updatedAt']) &&
+                        incoming().phoneKey == phoneKey &&
+                        incoming().trackingKeys is list &&
+                        incoming().trackingKeys.size() <= 100)
+                    );
+      allow delete: if isAdmin() && isValidTrackingKey(phoneKey);
+    }
+
+    // Portfolio gallery showcase (Public read, Admin write)
+    match /gallery/{itemId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && isValidId(itemId) && isValidGalleryItem(incoming()) &&
+                    incoming().id == itemId && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidId(itemId) && isValidGalleryItem(incoming()) &&
+                    incoming().id == existing().id && incoming().createdAt == existing().createdAt &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'imageUrl', 'description']);
+      allow delete: if isAdmin() && isValidId(itemId);
+    }
+
+    // Website settings (/settings/site)
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if false;
+      allow create: if isAdmin() && settingId == 'site' && isValidSiteSettings(incoming()) &&
+                    incoming().updatedAt == request.time;
+      allow update: if isAdmin() && settingId == 'site' && isValidSiteSettings(incoming()) &&
+                    incoming().updatedAt == request.time &&
+                    incoming().diff(existing()).affectedKeys().hasOnly([
+                      'brandName', 'logoUrl', 'whatsappNumber', 'instagramUrl', 'contactEmail',
+                      'contactPhone', 'contactAddress', 'websiteDescription', 'paymentQrUrl',
+                      'upiId', 'razorpayEnabled', 'razorpayKeyId', 'razorpayMerchantName',
+                      'discountPercent', 'discountFlat', 'discountLabel',
+                      'bannerTitle', 'bannerSubtitle', 'bannerImageUrl', 'categories', 'menuVisibility', 'updatedAt'
+                    ]);
+      allow delete: if false;
+    }
+
+    // Admin role directory
+    match /admins/{uid} {
+      allow get: if isAdmin() || (isVerified() && request.auth.uid == uid);
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && isValidId(uid) && isValidAdminUser(incoming()) &&
+                            incoming().uid == uid && incoming().addedAt == request.time;
+      allow delete: if isAdmin() && isValidId(uid);
+    }
+  }
+}

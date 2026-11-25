@@ -1,0 +1,276 @@
+{
+  "entities": {
+    "Service": {
+      "title": "Service",
+      "description": "A graphic design service offered by gurudev_designs with editable pricing, image, and category.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "price": { "type": "number" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "imageUrl": { "type": "string", "minLength": 0, "maxLength": 1000 },
+        "enabled": { "type": "boolean" },
+        "displayOrder": { "type": "number" },
+        "turnaround": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "deliverables": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "category", "price", "description", "imageUrl", "enabled", "displayOrder", "turnaround", "deliverables", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Private customer design order with payment verification details stored strictly for Admin processing.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "minLength": 6, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "trackingKey": { "type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[a-f0-9]{64}$" },
+        "phoneKey": { "type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[a-f0-9]{64}$" },
+        "customerName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "mobile": { "type": "string", "minLength": 10, "maxLength": 20, "pattern": "^[0-9+\\-\\s()]{10,20}$" },
+        "serviceId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "serviceName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "servicePrice": { "type": "number" },
+        "discountAmount": { "type": "number" },
+        "finalAmount": { "type": "number" },
+        "designSize": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "language": { "type": "string", "enum": ["Gujarati", "Hindi", "English"] },
+        "designText": { "type": "string", "minLength": 0, "maxLength": 2000 },
+        "requirements": { "type": "string", "minLength": 1, "maxLength": 3000 },
+        "specialInstructions": { "type": "string", "minLength": 0, "maxLength": 1500 },
+        "referencePhotos": { "type": "array" },
+        "logoUrl": { "type": "string", "minLength": 0, "maxLength": 1000 },
+        "paymentMethod": { "type": "string", "enum": ["Razorpay", "Scan & Pay QR", "UPI Payment"] },
+        "paymentReference": { "type": "string", "minLength": 0, "maxLength": 80 },
+        "paymentScreenshotUrl": { "type": "string", "minLength": 0, "maxLength": 1000 },
+        "razorpayOrderId": { "type": "string", "minLength": 0, "maxLength": 80 },
+        "razorpayPaymentId": { "type": "string", "minLength": 0, "maxLength": 80 },
+        "razorpaySignature": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["PAYMENT VERIFICATION PENDING", "PAYMENT VERIFIED", "PAYMENT REJECTED"]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "NEW ORDER",
+            "PAYMENT VERIFICATION PENDING",
+            "PAYMENT PENDING",
+            "PAYMENT RECEIVED",
+            "DESIGNING",
+            "DESIGN COMPLETED",
+            "DELIVERED",
+            "CANCELLED"
+          ]
+        },
+        "adminNotes": { "type": "string", "minLength": 0, "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "orderId",
+        "trackingKey",
+        "phoneKey",
+        "customerName",
+        "mobile",
+        "serviceId",
+        "serviceName",
+        "servicePrice",
+        "discountAmount",
+        "finalAmount",
+        "designSize",
+        "language",
+        "designText",
+        "requirements",
+        "specialInstructions",
+        "referencePhotos",
+        "logoUrl",
+        "paymentMethod",
+        "paymentReference",
+        "paymentScreenshotUrl",
+        "paymentStatus",
+        "status",
+        "adminNotes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OrderTracking": {
+      "title": "OrderTracking",
+      "description": "Sanitized customer tracking & live 6-step status keyed by SHA-256(orderId:mobileLast10), excluding private files, UTR, and raw mobile.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "minLength": 6, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "phoneKey": { "type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[a-f0-9]{64}$" },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "serviceName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "servicePrice": { "type": "number" },
+        "discountAmount": { "type": "number" },
+        "finalAmount": { "type": "number" },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["PAYMENT VERIFICATION PENDING", "PAYMENT VERIFIED", "PAYMENT REJECTED"]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "NEW ORDER",
+            "PAYMENT VERIFICATION PENDING",
+            "PAYMENT PENDING",
+            "PAYMENT RECEIVED",
+            "DESIGNING",
+            "DESIGN COMPLETED",
+            "DELIVERED",
+            "CANCELLED"
+          ]
+        },
+        "deliveryStatus": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "orderId",
+        "phoneKey",
+        "customerName",
+        "serviceName",
+        "servicePrice",
+        "discountAmount",
+        "finalAmount",
+        "paymentStatus",
+        "status",
+        "deliveryStatus",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PhoneOrderIndex": {
+      "title": "PhoneOrderIndex",
+      "description": "Maps SHA-256 hashed mobile number to sanitized order trackingKeys without storing any PII.",
+      "type": "object",
+      "properties": {
+        "phoneKey": { "type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[a-f0-9]{64}$" },
+        "trackingKeys": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phoneKey", "trackingKeys", "updatedAt"]
+    },
+    "GalleryItem": {
+      "title": "GalleryItem",
+      "description": "Design portfolio showcase item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Instagram Designs",
+            "Business Designs",
+            "Invitation Cards",
+            "Shraddhanjali Designs",
+            "Festival Designs",
+            "Religious Designs"
+          ]
+        },
+        "imageUrl": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "description": { "type": "string", "minLength": 0, "maxLength": 400 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "category", "imageUrl", "description", "createdAt"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Editable website branding, contact, WhatsApp, discount, Razorpay public config, menu visibility, and payment settings.",
+      "type": "object",
+      "properties": {
+        "brandName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "logoUrl": { "type": "string", "minLength": 0, "maxLength": 1000 },
+        "whatsappNumber": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "instagramUrl": { "type": "string", "minLength": 0, "maxLength": 300 },
+        "contactEmail": { "type": "string", "minLength": 0, "maxLength": 120 },
+        "contactPhone": { "type": "string", "minLength": 0, "maxLength": 100 },
+        "contactAddress": { "type": "string", "minLength": 0, "maxLength": 250 },
+        "websiteDescription": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "paymentQrUrl": { "type": "string", "minLength": 0, "maxLength": 1000 },
+        "upiId": { "type": "string", "minLength": 0, "maxLength": 100 },
+        "razorpayEnabled": { "type": "boolean" },
+        "razorpayKeyId": { "type": "string", "minLength": 0, "maxLength": 100 },
+        "razorpayMerchantName": { "type": "string", "minLength": 0, "maxLength": 100 },
+        "discountPercent": { "type": "number" },
+        "discountFlat": { "type": "number" },
+        "discountLabel": { "type": "string", "minLength": 0, "maxLength": 80 },
+        "bannerTitle": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "bannerSubtitle": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "bannerImageUrl": { "type": "string", "minLength": 0, "maxLength": 1000 },
+        "categories": {
+          "type": "array",
+          "description": "Live Admin-editable design service categories (up to 20)."
+        },
+        "menuVisibility": {
+          "type": "object",
+          "description": "Boolean visibility flags for website menu items."
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "brandName",
+        "logoUrl",
+        "whatsappNumber",
+        "instagramUrl",
+        "contactEmail",
+        "contactPhone",
+        "contactAddress",
+        "websiteDescription",
+        "paymentQrUrl",
+        "upiId",
+        "bannerTitle",
+        "bannerSubtitle",
+        "bannerImageUrl",
+        "menuVisibility",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized admin role mapping.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 150 },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "addedAt"]
+    }
+  },
+  "firestore": {
+    "/services/{serviceId}": {
+      "schema": { "$ref": "#/entities/Service" },
+      "description": "Design services catalog editable by Admin."
+    },
+    "/orders/{orderDocId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Private customer design orders readable and manageable only by Admin."
+    },
+    "/order_tracking/{trackingKey}": {
+      "schema": { "$ref": "#/entities/OrderTracking" },
+      "description": "Sanitized customer order tracking records keyed by SHA-256(orderId:mobileLast10)."
+    },
+    "/phone_indexes/{phoneKey}": {
+      "schema": { "$ref": "#/entities/PhoneOrderIndex" },
+      "description": "Hashed mobile number index mapping to sanitized order trackingKeys for real-time My Orders view."
+    },
+    "/gallery/{itemId}": {
+      "schema": { "$ref": "#/entities/GalleryItem" },
+      "description": "Design portfolio gallery items."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Website configuration document (/settings/site)."
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Admin role directory."
+    }
+  }
+}
