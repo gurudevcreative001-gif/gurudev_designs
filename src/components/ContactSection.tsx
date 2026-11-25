@@ -2,6 +2,7 @@ import React from 'react';
 import { Instagram, Mail, MapPin, MessageCircle, Phone, QrCode } from 'lucide-react';
 import type { SiteSettings } from '../types/design';
 import { buildWhatsAppUrl } from '../utils/orderUtils';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 interface ContactSectionProps {
   settings: SiteSettings;
@@ -92,7 +93,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ settings, onPlac
           <div className="flex flex-col sm:flex-row items-center gap-5 bg-[#06142E]/80 border border-[#35AFFF]/25 rounded-2xl p-4">
             {settings.paymentQrUrl ? (
               <img
-                src={settings.paymentQrUrl}
+                src={resolveAssetUrl(settings.paymentQrUrl)}
                 alt="Payment QR Code"
                 referrerPolicy="no-referrer"
                 className="w-28 h-28 rounded-xl bg-white p-1.5 object-contain shrink-0"

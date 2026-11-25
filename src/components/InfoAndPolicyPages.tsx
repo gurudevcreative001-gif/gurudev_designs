@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { SiteSettings } from '../types/design';
 import { buildWhatsAppUrl } from '../utils/orderUtils';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 interface InfoPageProps {
   page: 'payment-info' | 'terms' | 'privacy' | 'refund';
@@ -73,10 +74,10 @@ export const InfoAndPolicyPages: React.FC<InfoPageProps> = ({
               </p>
               <div className="pt-1 flex justify-center sm:justify-start">
                 <img
-                  src={
+                  src={resolveAssetUrl(
                     settings.paymentQrUrl?.trim() ||
-                    '/assets/aistudio/IMG_20261124_164417_229847fc.jpg'
-                  }
+                      '/assets/aistudio/IMG_20261124_164417_229847fc.jpg'
+                  )}
                   alt="Official Studio Payment QR"
                   className="w-32 h-32 rounded-xl bg-white p-1.5 object-contain border border-[#35AFFF]/35"
                 />

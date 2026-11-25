@@ -6,12 +6,13 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    base: './',
     plugins: [
       react(),
       tailwindcss(),
       // Copies src/assets into dist/ so root-relative URLs like
       // "/src/assets/images/..." (e.g. generate_image output) still resolve
-      // in production builds. Do not remove.
+      // in production builds. Also ensures GitHub Pages compatibility.
       {
         name: 'copy-unbundled-src-assets',
         apply: 'build',
@@ -19,18 +20,29 @@ export default defineConfig(() => {
           if (error) {
             return;
           }
-          const distDir = path.resolve(__dirname, 'dist');
-          const srcAssets = path.resolve(__dirname, 'src/assets');
+          const distDir = path.resolve(process.cwd(), 'dist');
+          const srcAssets = path.resolve(process.cwd(), 'src/assets');
           const distAssets = path.resolve(distDir, 'src/assets');
           if (fs.existsSync(distDir) && fs.existsSync(srcAssets)) {
             fs.cpSync(srcAssets, distAssets, {recursive: true, force: true});
           }
+
+          // Generate 404.html from index.html so GitHub Pages serves the SPA without blank 404s
+          const indexHtml = path.resolve(distDir, 'index.html');
+          const notFoundHtml = path.resolve(distDir, '404.html');
+          if (fs.existsSync(indexHtml)) {
+            fs.copyFileSync(indexHtml, notFoundHtml);
+          }
+
+          // Ensure .nojekyll exists in dist/ to disable Jekyll processing on GitHub Pages
+          const nojekyll = path.resolve(distDir, '.nojekyll');
+          fs.writeFileSync(nojekyll, '');
         },
       },
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(process.cwd(), '.'),
       },
     },
     server: {

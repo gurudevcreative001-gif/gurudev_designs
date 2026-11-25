@@ -19,6 +19,7 @@ import {
 import type { AppView, MenuItemKey, ServiceCategory, SiteSettings } from '../types/design';
 import { getActiveMenuKey, getVisibleMenuItems, type MenuDefinition } from '../utils/menuConfig';
 import { buildWhatsAppUrl } from '../utils/orderUtils';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 interface HeaderProps {
   activeView: AppView;
@@ -92,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             {settings.logoUrl ? (
               <img
-                src={settings.logoUrl}
+                src={resolveAssetUrl(settings.logoUrl)}
                 alt={settings.brandName || 'gurudev_designs'}
                 referrerPolicy="no-referrer"
                 className="w-7 h-7 rounded-lg object-cover border border-[#35AFFF]/40"
@@ -166,7 +167,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2.5 min-w-0">
             {settings.logoUrl ? (
               <img
-                src={settings.logoUrl}
+                src={resolveAssetUrl(settings.logoUrl)}
                 alt={settings.brandName || 'gurudev_designs'}
                 referrerPolicy="no-referrer"
                 className="w-8 h-8 rounded-xl object-cover border border-[#35AFFF]/45 shrink-0"

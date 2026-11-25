@@ -39,6 +39,7 @@ import {
   validateOrderInput,
   type OrderValidationErrors,
 } from '../utils/orderUtils';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 interface SelectedFileItem {
   id: string;
@@ -1315,10 +1316,10 @@ export const OrderAndPaymentPage: React.FC<OrderAndPaymentPageProps> = ({
                     <div className="flex flex-col items-center text-center gap-2.5 pt-1">
                       <div className="w-48 h-48 rounded-2xl bg-white p-1.5 border border-[#35AFFF]/45 shadow-[0_0_20px_rgba(53,175,255,0.2)] flex items-center justify-center overflow-hidden">
                         <img
-                          src={
+                          src={resolveAssetUrl(
                             settings.paymentQrUrl?.trim() ||
-                            '/assets/aistudio/IMG_20261124_164417_229847fc.jpg'
-                          }
+                              '/assets/aistudio/IMG_20261124_164417_229847fc.jpg'
+                          )}
                           alt="Official Studio Payment QR Code"
                           referrerPolicy="no-referrer"
                           className="w-full h-full object-contain rounded-xl"

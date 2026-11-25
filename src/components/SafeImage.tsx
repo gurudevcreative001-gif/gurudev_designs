@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Layers } from 'lucide-react';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 interface SafeImageProps {
   src?: string;
@@ -16,7 +17,9 @@ export const SafeImage: React.FC<SafeImageProps> = ({
 }) => {
   const [failed, setFailed] = useState(false);
 
-  if (!src || failed) {
+  const resolved = resolveAssetUrl(src);
+
+  if (!resolved || failed) {
     return (
       <div
         className={`flex flex-col items-center justify-center bg-gradient-to-br from-[#10264B] via-[#0B1D3D] to-[#06142E] text-slate-300 p-4 text-center ${className}`}
@@ -33,7 +36,7 @@ export const SafeImage: React.FC<SafeImageProps> = ({
 
   return (
     <img
-      src={src}
+      src={resolved}
       alt={alt}
       referrerPolicy="no-referrer"
       loading="lazy"

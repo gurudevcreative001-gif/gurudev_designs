@@ -23,6 +23,7 @@ import {
 } from '../utils/adminStats';
 import {
   buildWhatsAppUrl,
+  computePhoneKey,
   formatPriceINR,
   getLiveOrderStepsState,
   normalizeMobileLast10,
@@ -144,27 +145,37 @@ export const OrderTrackingSection: React.FC<OrderTrackingSectionProps> = ({
     stopLiveListener();
 
     try {
-      const res = await fetch('/api/orders/lookup-phone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: last10, honeypot }),
-      });
+      let phoneKey = '';
+      let maskedMobile = `+91 ******${last10.slice(-4)}`;
 
-      const data = (await res.json()) as {
-        phoneKey?: string;
-        maskedMobile?: string;
-        error?: string;
-      };
+      try {
+        const res = await fetch('/api/orders/lookup-phone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: last10, honeypot }),
+        });
 
-      if (!res.ok || !data.phoneKey) {
-        setError(data.error || 'Unable to verify lookup request. Please try again.');
-        setLoading(false);
-        return;
+        if (res.ok) {
+          const data = (await res.json()) as {
+            phoneKey?: string;
+            maskedMobile?: string;
+          };
+          if (data.phoneKey) {
+            phoneKey = data.phoneKey;
+            maskedMobile = data.maskedMobile || maskedMobile;
+          }
+        }
+      } catch {
+        // Static hosting fallback (e.g. GitHub Pages)
       }
 
-      setSearchedMobileLabel(data.maskedMobile || `+91 ${last10}`);
+      if (!phoneKey) {
+        phoneKey = await computePhoneKey(last10);
+      }
+
+      setSearchedMobileLabel(maskedMobile);
       unsubRef.current = subscribeOrdersByPhoneKey(
-        data.phoneKey,
+        phoneKey,
         (liveOrders) => {
           if (!isFirstSnapshotRef.current) {
             const newEvents = detectCustomerOrderEvents(prevOrdersRef.current, liveOrders);

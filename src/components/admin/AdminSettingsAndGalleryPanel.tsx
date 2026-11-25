@@ -28,6 +28,7 @@ import {
 } from '../../types/design';
 import { MENU_ITEMS, normalizeMenuVisibility } from '../../utils/menuConfig';
 import { buildWhatsAppUrl, formatWhatsAppMessage } from '../../utils/orderUtils';
+import { resolveAssetUrl } from '../../utils/assetUrl';
 import { SafeImage } from '../SafeImage';
 
 interface AdminSettingsAndGalleryPanelProps {
@@ -672,7 +673,7 @@ export const AdminSettingsAndGalleryPanel: React.FC<AdminSettingsAndGalleryPanel
           </div>
           {formSettings.paymentQrUrl && (
             <img
-              src={formSettings.paymentQrUrl}
+              src={resolveAssetUrl(formSettings.paymentQrUrl)}
               alt="Payment QR Preview"
               className="w-28 h-28 rounded-xl bg-white p-1.5 object-contain mt-2"
             />
